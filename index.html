@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beating Heart</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            width: 100vw; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            background: #050510;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        /* 背景渐变层 - 深邃空间感 */
+        .bg-gradient {
+            position: fixed; inset: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 50% 45%, rgba(80,20,80,.3) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 50% 50%, rgba(120,30,80,.15) 0%, transparent 50%),
+                radial-gradient(ellipse at center, #0a0618 0%, #050510 100%);
+            z-index: 0;
+        }
+
+        /* Canvas 粒子层 */
+        #sparkleCanvas {
+            position: fixed; inset: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .scene {
+            position: relative;
+            display: flex; justify-content: center; align-items: center;
+            width: 600px; height: 600px;
+            z-index: 5;
+        }
+
+        /* ---------- 光晕层 ---------- */
+        .glow-layer {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .glow-layer.a {
+            width: 520px; height: 520px;
+            background: radial-gradient(circle, rgba(255,50,100,.08) 0%, transparent 65%);
+            animation: pulse-glow 1.2s ease-in-out infinite;
+        }
+        .glow-layer.b {
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(255,80,140,.1) 0%, transparent 60%);
+            animation: pulse-glow 1.2s ease-in-out infinite .05s;
+        }
+        .glow-layer.c {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(255,120,180,.08) 0%, transparent 55%);
+            animation: pulse-glow 1.2s ease-in-out infinite .1s;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1);   opacity: .4; }
+            15%      { transform: scale(1.2);  opacity: 1; }
+            30%      { transform: scale(1);   opacity: .4; }
+            45%      { transform: scale(1.12); opacity: .8; }
+            60%      { transform: scale(1);   opacity: .4; }
+        }
+
+        /* ---------- 心形 ---------- */
+        .heart-wrapper {
+            position: relative;
+            width: 320px; height: 320px;
+            cursor: pointer;
+            z-index: 5;
+            animation: heartbeat 1.2s ease-in-out infinite;
+            transition: filter .15s;
+        }
+        .heart-wrapper:active {
+            filter: brightness(1.5) drop-shadow(0 0 40px rgba(255,100,180,.6));
+        }
+
+        @keyframes heartbeat {
+            0%   { transform: scale(1); }
+            15%  { transform: scale(1.16); }
+            30%  { transform: scale(1); }
+            45%  { transform: scale(1.1); }
+            60%  { transform: scale(1); }
+            100% { transform: scale(1); }
+        }
+
+        .heart-wrapper svg {
+            width: 100%; height: 100%;
+            filter:
+                drop-shadow(0 0 15px rgba(255,80,150,.5))
+                drop-shadow(0 0 50px rgba(255,50,120,.3))
+                drop-shadow(0 0 100px rgba(180,20,80,.2));
+        }
+
+        /* 倒影 */
+        .heart-reflection {
+            position: absolute;
+            bottom: -80px; left: 0;
+            width: 320px; height: 120px;
+            overflow: hidden;
+            pointer-events: none;
+            opacity: .15;
+            z-index: 4;
+        }
+        .heart-reflection svg {
+            width: 320px; height: 320px;
+            transform: scaleY(-1) translateY(200px);
+            filter: blur(6px) drop-shadow(0 0 10px rgba(255,80,150,.3));
+        }
+
+        /* ---------- 控制按钮 ---------- */
+        .controls {
+            position: fixed; top: 20px; right: 20px;
+            z-index: 100;
+        }
+        .volume-toggle {
+            background: rgba(255,255,255,.06);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,.1);
+            color: rgba(255,255,255,.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all .3s;
+            letter-spacing: .5px;
+        }
+        .volume-toggle:hover {
+            background: rgba(255,255,255,.12);
+            color: #fff;
+        }
+
+        /* ---------- 底部信息 ---------- */
+        .info {
+            position: fixed; bottom: 26px;
+            text-align: center;
+            color: rgba(255,255,255,.35);
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 12px;
+            letter-spacing: 1px;
+            z-index: 100;
+            pointer-events: none;
+        }
+        .info .hint {
+            animation: fade-hint 3s ease-in-out infinite;
+        }
+        @keyframes fade-hint {
+            0%, 100% { opacity: .3; }
+            50%      { opacity: .7; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-gradient"></div>
+
+<div class="controls">
+    <button class="volume-toggle" id="volumeToggle">🔊 音效</button>
+</div>
+
+<canvas id="sparkleCanvas"></canvas>
+
+<div class="scene">
+    <div class="glow-layer a"></div>
+    <div class="glow-layer b"></div>
+    <div class="glow-layer c"></div>
+
+    <div class="heart-wrapper" id="heart">
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <!-- 主体：半透明径向渐变 -->
+                <radialGradient id="bodyGrad" cx="50%" cy="40%" r="55%">
+                    <stop offset="0%"   stop-color="#ff90c0" stop-opacity=".55"/>
+                    <stop offset="40%"  stop-color="#ff4080" stop-opacity=".45"/>
+                    <stop offset="75%"  stop-color="#d01060" stop-opacity=".35"/>
+                    <stop offset="100%" stop-color="#900040" stop-opacity=".25"/>
+                </radialGradient>
+
+                <!-- 边缘发光 -->
+                <radialGradient id="edgeGrad" cx="50%" cy="45%" r="55%">
+                    <stop offset="60%"  stop-color="transparent"/>
+                    <stop offset="85%"  stop-color="#ff70b0" stop-opacity=".2"/>
+                    <stop offset="100%" stop-color="#ff3080" stop-opacity=".35"/>
+                </radialGradient>
+
+                <!-- 左上高光 -->
+                <radialGradient id="hlLeft" cx="30%" cy="28%" r="25%">
+                    <stop offset="0%"  stop-color="#fff" stop-opacity=".5"/>
+                    <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+                </radialGradient>
+
+                <!-- 右上高光 (较弱) -->
+                <radialGradient id="hlRight" cx="68%" cy="30%" r="18%">
+                    <stop offset="0%"  stop-color="#fff" stop-opacity=".2"/>
+                    <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+                </radialGradient>
+
+                <!-- 底部柔光 -->
+                <radialGradient id="bottomGlow" cx="50%" cy="75%" r="30%">
+                    <stop offset="0%"  stop-color="#ff80b0" stop-opacity=".12"/>
+                    <stop offset="100%" stop-color="transparent"/>
+                </radialGradient>
+
+                <!-- 内部柔化 -->
+                <filter id="softInner">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="soft"/>
+                    <feComposite in="SourceGraphic" in2="soft" operator="over"/>
+                </filter>
+
+                <!-- 心形裁剪路径 -->
+                <clipPath id="heartClip">
+                    <path d="M256 448 C200 400,48 300,48 192 C48 112,112 48,176 48
+                             C216 48,248 72,256 96 C264 72,296 48,336 48
+                             C400 48,464 112,464 192 C464 300,312 400,256 448Z"/>
+                </clipPath>
+            </defs>
+
+            <!-- 主体半透明填充 -->
+            <path d="M256 448 C200 400,48 300,48 192 C48 112,112 48,176 48
+                     C216 48,248 72,256 96 C264 72,296 48,336 48
+                     C400 48,464 112,464 192 C464 300,312 400,256 448Z"
+                  fill="url(#bodyGrad)" filter="url(#softInner)"/>
+
+            <!-- 边缘发光线 -->
+            <path d="M256 448 C200 400,48 300,48 192 C48 112,112 48,176 48
+                     C216 48,248 72,256 96 C264 72,296 48,336 48
+                     C400 48,464 112,464 192 C464 300,312 400,256 448Z"
+                  fill="url(#edgeGrad)"/>
+
+            <!-- 高光层 -->
+            <g clip-path="url(#heartClip)">
+                <rect width="512" height="512" fill="url(#hlLeft)"/>
+                <rect width="512" height="512" fill="url(#hlRight)"/>
+                <rect width="512" height="512" fill="url(#bottomGlow)"/>
+            </g>
+
+            <!-- 极细描边 - 通透质感 -->
+            <path d="M256 448 C200 400,48 300,48 192 C48 112,112 48,176 48
+                     C216 48,248 72,256 96 C264 72,296 48,336 48
+                     C400 48,464 112,464 192 C464 300,312 400,256 448Z"
+                  fill="none" stroke="rgba(255,180,210,.25)" stroke-width="1.5"/>
+        </svg>
+
+        <!-- 倒影 -->
+        <div class="heart-reflection">
+            <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                <path d="M256 448 C200 400,48 300,48 192 C48 112,112 48,176 48
+                         C216 48,248 72,256 96 C264 72,296 48,336 48
+                         C400 48,464 112,464 192 C464 300,312 400,256 448Z"
+                      fill="rgba(255,80,140,.4)"/>
+            </svg>
+        </div>
+    </div>
+</div>
+
+<div class="info">
+    <p id="beatCount"></p>
+    <p class="hint">点击心形会有惊喜</p>
+</div>
+
+<script>
+// ==================== 音频 ====================
+class HeartAudio {
+    constructor() { this.ctx = null; this.muted = false; this.beats = 0; }
+
+    ensure() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+    }
+
+    playBeat() {
+        if (this.muted || !this.ctx) return;
+        const t = this.ctx.currentTime;
+        this._thump(60, .22, t, .3);
+        this._thump(90, .12, t, .15);
+        this._thump(50, .15, t + .22, .2);
+        this._thump(80, .08, t + .22, .1);
+        this.beats++;
+        document.getElementById('beatCount').textContent = '♥ ' + this.beats;
+    }
+
+    playClick() {
+        if (this.muted || !this.ctx) return;
+        const t = this.ctx.currentTime;
+        this._tone('sine',   1200, 600, .15, t, .1);
+        this._tone('triangle', 1800, 400, .25, t, .05);
+        this._tone('sine',   2400, 800, .1,  t + .05, .04);
+    }
+
+    _thump(freq, dur, t, vol) {
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(freq, t);
+        o.frequency.exponentialRampToValueAtTime(freq * .4, t + dur);
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(.001, t + dur);
+        o.connect(g).connect(this.ctx.destination);
+        o.start(t); o.stop(t + dur);
+    }
+
+    _tone(type, f1, f2, dur, t, vol) {
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(f1, t);
+        o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(.001, t + dur);
+        o.connect(g).connect(this.ctx.destination);
+        o.start(t); o.stop(t + dur);
+    }
+
+    toggle() { this.muted = !this.muted; return this.muted; }
+}
+
+// ==================== Canvas 粒子系统 ====================
+const canvas = document.getElementById('sparkleCanvas');
+const cx = canvas.getContext('2d');
+let W, H;
+
+function resize() { W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+resize();
+addEventListener('resize', resize);
+
+const sparkles = [];
+
+const PALETTE = [
+    [255,180,210],  // 浅粉
+    [255,255,255],  // 白
+    [255,210,140],  // 暖金
+    [210,180,255],  // 薰衣草
+    [255,130,180],  // 玫粉
+    [180,220,255],  // 冰蓝
+];
+
+class Sparkle {
+    constructor(x, y, o = {}) {
+        this.x = x; this.y = y;
+        this.vx = o.vx ?? (Math.random() - .5) * 2;
+        this.vy = o.vy ?? (Math.random() - .5) * 2 - 1;
+        this.life = o.life ?? (.5 + Math.random() * .8);
+        this.maxLife = this.life;
+        this.size = o.size ?? (2 + Math.random() * 4);
+        this.rot = Math.random() * Math.PI * 2;
+        this.rotV = (Math.random() - .5) * 5;
+        this.color = o.color ?? PALETTE[Math.random() * PALETTE.length | 0];
+        this.shape = o.shape ?? (Math.random() < .35 ? 'diamond' : Math.random() < .6 ? 'star4' : 'star6');
+    }
+
+    update(dt) {
+        this.life -= dt;
+        this.x += this.vx * 60 * dt;
+        this.y += this.vy * 60 * dt;
+        this.vy += .4 * dt;
+        this.rot += this.rotV * dt;
+    }
+
+    draw() {
+        const t = Math.max(0, this.life / this.maxLife);
+        const flicker = .5 + .5 * Math.sin(this.life * 22);
+        const a = t * flicker;
+        const [r, g, b] = this.color;
+        const s = this.size * (.8 + (1 - t) * .5);
+
+        cx.save();
+        cx.translate(this.x, this.y);
+        cx.rotate(this.rot);
+        cx.globalAlpha = a;
+
+        if (this.shape === 'diamond') {
+            cx.beginPath();
+            cx.moveTo(0, -s); cx.lineTo(s * .45, 0);
+            cx.lineTo(0, s);  cx.lineTo(-s * .45, 0);
+            cx.closePath();
+            cx.fillStyle = `rgba(${r},${g},${b},.9)`;
+            cx.fill();
+        } else {
+            const pts = this.shape === 'star6' ? 6 : 4;
+            this._star(0, 0, s, pts);
+            cx.fillStyle = `rgba(${r},${g},${b},.85)`;
+            cx.fill();
+        }
+
+        // 中心白色高光点
+        cx.beginPath();
+        cx.arc(0, 0, s * .25, 0, Math.PI * 2);
+        cx.fillStyle = `rgba(255,255,255,${a * .8})`;
+        cx.fill();
+
+        // 柔光晕
+        cx.beginPath();
+        cx.arc(0, 0, s * 1.2, 0, Math.PI * 2);
+        cx.fillStyle = `rgba(${r},${g},${b},${a * .1})`;
+        cx.fill();
+
+        cx.restore();
+    }
+
+    _star(px, py, size, pts) {
+        cx.beginPath();
+        for (let i = 0; i < pts * 2; i++) {
+            const ang = (i * Math.PI) / pts - Math.PI / 2;
+            const r = i % 2 === 0 ? size : size * .28;
+            const x = px + Math.cos(ang) * r;
+            const y = py + Math.sin(ang) * r;
+            i === 0 ? cx.moveTo(x, y) : cx.lineTo(x, y);
+        }
+        cx.closePath();
+    }
+}
+
+// ---------- 背景飘浮 bling ----------
+const bgBling = [];
+
+class BgBling {
+    constructor(init) {
+        this.reset();
+        if (init) this.y = Math.random() * H;
+    }
+    reset() {
+        this.x = Math.random() * W;
+        this.y = -10;
+        this.size = .8 + Math.random() * 2;
+        this.speed = 10 + Math.random() * 25;
+        this.phase = Math.random() * Math.PI * 2;
+        this.freq = .8 + Math.random() * 2;
+        this.drift = 15 + Math.random() * 25;
+        this.color = PALETTE[Math.random() * PALETTE.length | 0];
+    }
+    update(dt) {
+        this.y += this.speed * dt;
+        this.phase += this.freq * dt;
+        if (this.y > H + 10) this.reset();
+    }
+    draw() {
+        const twinkle = .2 + .8 * Math.pow(.5 + .5 * Math.sin(this.phase * 8), 2);
+        const [r, g, b] = this.color;
+        const x = this.x + Math.sin(this.phase) * this.drift;
+        const s = this.size;
+
+        cx.save();
+        cx.translate(x, this.y);
+        cx.globalAlpha = twinkle * .7;
+
+        // 十字光芒
+        cx.strokeStyle = `rgba(${r},${g},${b},.8)`;
+        cx.lineWidth = .6;
+        cx.beginPath();
+        cx.moveTo(-s * 1.5, 0); cx.lineTo(s * 1.5, 0);
+        cx.moveTo(0, -s * 1.5); cx.lineTo(0, s * 1.5);
+        cx.stroke();
+
+        // 核心亮点
+        cx.beginPath();
+        cx.arc(0, 0, s * .35, 0, Math.PI * 2);
+        cx.fillStyle = `rgba(255,255,255,${twinkle * .9})`;
+        cx.fill();
+
+        // 柔晕
+        cx.beginPath();
+        cx.arc(0, 0, s * 1.8, 0, Math.PI * 2);
+        cx.fillStyle = `rgba(${r},${g},${b},${twinkle * .06})`;
+        cx.fill();
+
+        cx.restore();
+    }
+}
+
+for (let i = 0; i < 80; i++) bgBling.push(new BgBling(true));
+
+// ---------- Bokeh 背景 ----------
+const bokehs = [];
+class Bokeh {
+    constructor() {
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+        this.r = 20 + Math.random() * 60;
+        this.phase = Math.random() * Math.PI * 2;
+        this.speed = .2 + Math.random() * .4;
+        this.vx = (Math.random() - .5) * .3;
+        this.vy = (Math.random() - .5) * .2;
+        const c = PALETTE[Math.random() * PALETTE.length | 0];
+        this.color = c;
+        this.baseAlpha = .015 + Math.random() * .025;
+    }
+    update(dt) {
+        this.phase += this.speed * dt;
+        this.x += this.vx * 60 * dt;
+        this.y += this.vy * 60 * dt;
+        if (this.x < -100) this.x = W + 100;
+        if (this.x > W + 100) this.x = -100;
+        if (this.y < -100) this.y = H + 100;
+        if (this.y > H + 100) this.y = -100;
+    }
+    draw() {
+        const pulse = .6 + .4 * Math.sin(this.phase);
+        const [r, g, b] = this.color;
+        cx.beginPath();
+        cx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        cx.fillStyle = `rgba(${r},${g},${b},${this.baseAlpha * pulse})`;
+        cx.fill();
+    }
+}
+for (let i = 0; i < 18; i++) bokehs.push(new Bokeh());
+
+// ---------- 心跳发射粒子 ----------
+function emitHeartSparkles(count) {
+    const el = document.getElementById('heart');
+    const rect = el.getBoundingClientRect();
+    const cx_ = rect.left + rect.width / 2;
+    const cy_ = rect.top + rect.height / 2;
+    const rad = rect.width * .42;
+
+    for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const dist = rad * (.4 + Math.random() * .7);
+        sparkles.push(new Sparkle(
+            cx_ + Math.cos(ang) * dist,
+            cy_ + Math.sin(ang) * dist,
+            {
+                vx: Math.cos(ang) * (1 + Math.random() * 3),
+                vy: Math.sin(ang) * (1 + Math.random() * 3) - 1.5,
+                life: .5 + Math.random() * .8,
+                size: 2 + Math.random() * 5,
+            }
+        ));
+    }
+}
+
+// 点击爆发
+function emitBurst(x, y) {
+    const n = 35;
+    for (let i = 0; i < n; i++) {
+        const ang = (i / n) * Math.PI * 2 + Math.random() * .4;
+        const spd = 2 + Math.random() * 6;
+        sparkles.push(new Sparkle(x, y, {
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 2,
+            life: .6 + Math.random() * 1.2,
+            size: 3 + Math.random() * 8,
+        }));
+    }
+    // 中心白色闪光
+    for (let i = 0; i < 6; i++) {
+        sparkles.push(new Sparkle(x + (Math.random() - .5) * 20, y + (Math.random() - .5) * 20, {
+            vx: (Math.random() - .5) * 2,
+            vy: -1 - Math.random() * 2,
+            life: .3 + Math.random() * .3,
+            size: 5 + Math.random() * 5,
+            color: [255, 255, 255],
+            shape: 'star6',
+        }));
+    }
+}
+
+// ==================== 主循环 ====================
+let last = 0;
+
+function frame(time) {
+    const dt = Math.min((time - last) / 1000, .05);
+    last = time;
+
+    cx.clearRect(0, 0, W, H);
+
+    // Bokeh
+    for (const b of bokehs) { b.update(dt); b.draw(); }
+
+    // 背景 bling
+    for (const s of bgBling) { s.update(dt); s.draw(); }
+
+    // 爆发粒子
+    for (let i = sparkles.length - 1; i >= 0; i--) {
+        sparkles[i].update(dt);
+        if (sparkles[i].life <= 0) { sparkles.splice(i, 1); continue; }
+        sparkles[i].draw();
+    }
+
+    cx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ==================== 心跳同步 ====================
+const audio = new HeartAudio();
+const heartEl = document.getElementById('heart');
+
+heartEl.addEventListener('animationiteration', () => {
+    audio.ensure();
+    audio.playBeat();
+    emitHeartSparkles(18);
+});
+
+heartEl.addEventListener('click', (e) => {
+    audio.ensure();
+    audio.playClick();
+    audio.playBeat();
+    emitBurst(e.clientX, e.clientY);
+});
+
+const btn = document.getElementById('volumeToggle');
+btn.addEventListener('click', () => {
+    const m = audio.toggle();
+    btn.textContent = m ? '🔇 静音' : '🔊 音效';
+});
+
+document.addEventListener('click', () => audio.ensure(), { once: true });
+</script>
+</body>
+</html>
