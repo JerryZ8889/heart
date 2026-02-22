@@ -77,7 +77,11 @@
             cursor: pointer;
             z-index: 5;
             animation: heartbeat 1.2s ease-in-out infinite;
+            animation-play-state: paused;
             transition: filter .15s;
+        }
+        .heart-wrapper.started {
+            animation-play-state: running;
         }
         .heart-wrapper:active {
             filter: brightness(1.5) drop-shadow(0 0 40px rgba(255,100,180,.6));
@@ -114,6 +118,49 @@
             width: 320px; height: 320px;
             transform: scaleY(-1) translateY(200px);
             filter: blur(6px) drop-shadow(0 0 10px rgba(255,80,150,.3));
+        }
+
+        /* ---------- 启动画面 ---------- */
+        #startOverlay {
+            position: fixed; inset: 0;
+            z-index: 999;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            gap: 20px;
+            cursor: pointer;
+            background: radial-gradient(ellipse at center, rgba(10,6,24,.92) 0%, rgba(5,5,16,.97) 100%);
+            backdrop-filter: blur(4px);
+            animation: overlay-fade-in .6s ease;
+        }
+        @keyframes overlay-fade-in {
+            from { opacity: 0; } to { opacity: 1; }
+        }
+        #startOverlay.hiding {
+            animation: overlay-fade-out .5s ease forwards;
+        }
+        @keyframes overlay-fade-out {
+            from { opacity: 1; } to { opacity: 0; pointer-events: none; }
+        }
+        .start-heart-icon {
+            font-size: 64px;
+            animation: start-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes start-pulse {
+            0%, 100% { transform: scale(1); }
+            50%       { transform: scale(1.15); }
+        }
+        .start-text {
+            color: rgba(255,255,255,.85);
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 18px;
+            letter-spacing: 2px;
+            animation: start-pulse 1.5s ease-in-out infinite .2s;
+        }
+        .start-sub {
+            color: rgba(255,255,255,.35);
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 12px;
+            letter-spacing: 1px;
         }
 
         /* ---------- 控制按钮 ---------- */
@@ -159,6 +206,12 @@
     </style>
 </head>
 <body>
+
+<div id="startOverlay">
+    <div class="start-heart-icon">💗</div>
+    <div class="start-text">点击开始</div>
+    <div class="start-sub">Click anywhere to enable sound</div>
+</div>
 
 <div class="bg-gradient"></div>
 
@@ -590,15 +643,27 @@ requestAnimationFrame(frame);
 // ==================== 心跳同步 ====================
 const audio = new HeartAudio();
 const heartEl = document.getElementById('heart');
+const overlay = document.getElementById('startOverlay');
 
+// 启动画面点击 → 解锁音频 + 启动动画
+overlay.addEventListener('click', () => {
+    audio.ensure();          // 在用户手势内创建并 resume AudioContext
+    overlay.classList.add('hiding');
+    overlay.addEventListener('animationend', () => overlay.remove(), { once: true });
+    heartEl.classList.add('started');  // 解除动画暂停
+    // 立刻播放第一声心跳，让用户感受到效果
+    audio.playBeat();
+    emitHeartSparkles(18);
+}, { once: true });
+
+// 每次动画循环自动播放心跳音
 heartEl.addEventListener('animationiteration', () => {
-    audio.ensure();
     audio.playBeat();
     emitHeartSparkles(18);
 });
 
+// 点击心形：额外音效 + 爆发粒子
 heartEl.addEventListener('click', (e) => {
-    audio.ensure();
     audio.playClick();
     audio.playBeat();
     emitBurst(e.clientX, e.clientY);
@@ -609,8 +674,6 @@ btn.addEventListener('click', () => {
     const m = audio.toggle();
     btn.textContent = m ? '🔇 静音' : '🔊 音效';
 });
-
-document.addEventListener('click', () => audio.ensure(), { once: true });
 </script>
 </body>
 </html>
