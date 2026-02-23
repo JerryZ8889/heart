@@ -176,9 +176,76 @@
         ============================================================ */
         .scene {
             position: relative;
-            display: flex; justify-content: center; align-items: center;
-            width: 600px; height: 600px;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            width: 600px; height: 700px;
             z-index: 5;
+        }
+
+        /* I LOVE YOU 文字 */
+        .love-text {
+            position: relative;
+            z-index: 10;
+            font-family: 'Cinzel', 'Times New Roman', serif;
+            font-weight: 600;
+            font-size: clamp(28px, 4.5vw, 48px);
+            letter-spacing: .3em;
+            text-align: center;
+            margin-bottom: 10px;
+            /* 多层渐变文字 */
+            background: linear-gradient(
+                105deg,
+                #ffe0ec 0%,
+                #ffb8d4 15%,
+                #ffffff 30%,
+                #ffa0c8 45%,
+                #ffffff 55%,
+                #ffc8e0 70%,
+                #ffffff 85%,
+                #ffe0ec 100%
+            );
+            background-size: 300% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: love-shimmer 3.5s linear infinite;
+            /* 文字发光 */
+            filter:
+                drop-shadow(0 0 8px rgba(255,120,180,.6))
+                drop-shadow(0 0 25px rgba(255,80,150,.35))
+                drop-shadow(0 0 50px rgba(200,40,100,.2));
+            /* 随心跳轻微呼吸 */
+            animation: love-shimmer 3.5s linear infinite, love-breathe 1.2s ease-in-out infinite;
+        }
+        @keyframes love-shimmer {
+            0%   { background-position: 0% center; }
+            100% { background-position: 300% center; }
+        }
+        @keyframes love-breathe {
+            0%   { transform: scale(1); opacity: .85; }
+            15%  { transform: scale(1.06); opacity: 1; }
+            30%  { transform: scale(1); opacity: .85; }
+            45%  { transform: scale(1.04); opacity: .95; }
+            60%  { transform: scale(1); opacity: .85; }
+            100% { transform: scale(1); opacity: .85; }
+        }
+
+        /* 文字下方装饰线 */
+        .love-ornament {
+            display: flex; align-items: center; gap: 12px;
+            width: min(320px, 70vw);
+            margin-bottom: 8px;
+            z-index: 10;
+        }
+        .love-ornament hr {
+            flex: 1; border: none;
+            height: 1px;
+            background: linear-gradient(to right, transparent, rgba(255,160,200,.4), transparent);
+        }
+        .love-ornament span {
+            font-size: 8px;
+            color: rgba(255,160,200,.5);
+            animation: love-breathe 1.2s ease-in-out infinite;
         }
 
         /* 光晕层 */
@@ -317,6 +384,11 @@
     <div class="glow-layer a"></div>
     <div class="glow-layer b"></div>
     <div class="glow-layer c"></div>
+
+    <div class="love-text">I LOVE YOU</div>
+    <div class="love-ornament">
+        <hr><span>✦</span><hr>
+    </div>
 
     <div class="heart-wrapper" id="heart">
         <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
@@ -621,13 +693,13 @@ overlay.addEventListener('click', () => {
     overlay.classList.add('fade-out');
     overlay.addEventListener('animationend', () => overlay.remove(), { once: true });
     audio.playBeat();
-    emitHeartSparkles(20);
+    emitHeartSparkles(50);
 }, { once: true });
 
 // 每次心跳动画循环 → 自动播放音效 + 粒子
 heartEl.addEventListener('animationiteration', () => {
     audio.playBeat();
-    emitHeartSparkles(18);
+    emitHeartSparkles(45);
 });
 
 // 点击心形 → 额外音效 + 爆发粒子
